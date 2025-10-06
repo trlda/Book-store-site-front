@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Beautiful Book List</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Our Book Collection</h1>
+        <button onclick="fetchBooks()">Load Books</button>
+        <div id="book-list"></div>
+    </div>
+
+    <script>
+        // Cache for lookup data
+        let authors = {};
+        let publishers = {};
+        let genres = {};
+
+        // Fetch lookup data first
+        async function fetchLookupData() {
+            try {
+                // Fetch authors
+                const authorsResponse = await fetch('http://127.0.0.1:8000/authors/');
+                if (!authorsResponse.ok) throw new Error('Failed to fetch authors');
+                const authorsData = await authorsResponse.json();
+                authorsData.forEach(author => {
+                    authors[author.id] = author.name;
+                });
+
+                // Fetch publishers
+                const publishersResponse = await fetch('http://127.0.0.1:8000/publishers/');
+                if (!publishersResponse.ok) throw new Error('Failed to fetch publishers');
+                const publishersData = await publishersResponse.json();
+                publishersData.forEach(publisher => {
+                    publishers[publisher.id] = publisher.name;
+                });
+
+                // Fetch genres
+                const genresResponse = await fetch('http://127.0.0.1:8000/genres/');
+                if (!genresResponse.ok) throw new Error('Failed to fetch genres');
+                const genresData = await genresResponse.json();
+                genresData.forEach(genre => {
+                    genres[genre.id] = genre.name;
+                });
+
+                return true;
+            } catch (error) {
+                console.error('Error fetching lookup data:', error);
+                return false;
+            }
+        }
+
+        // Get display name with fallback
+        function getDisplayName(id, lookup, fallback = 'Unknown') {
+            return lookup[id] || fallback;
+        }
+
+        async function fetchBooks() {
+            const list = document.getElementById('book-list');
+            list.innerHTML = '<p class="loading">Loading books...</p>';
+
+            try {
+                // First fetch the lookup data
+                const lookupSuccess = await fetchLookupData();
+                if (!lookupSuccess) {
+                    throw new Error('Failed to load book metadata');
+                }
+
+                // Then fetch the books
+                const response = await fetch('http://127.0.0.1:8000/books/');
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const books = await response.json();
+                list.innerHTML = '';
+
+                if (books.length === 0) {
+                    list.innerHTML = '<p class="empty">No books found.</p>';
+                    return;
+                }
+
+                books.forEach(book => {
+                    const bookDiv = document.createElement('div');
+                    bookDiv.className = 'book';
+                    bookDiv.innerHTML = `
+                        <h3>${book.name}</h3>
+                        <p><strong>Author:</strong> ${getDisplayName(book.author, authors)}</p>
+                        <p><strong>Publisher:</strong> ${getDisplayName(book.publisher, publishers)}</p>
+                        <p><strong>Genre:</strong> ${getDisplayName(book.genre, genres)}</p>
+                        <p><strong>Rating:</strong> ⭐ ${book.rating}</p>
+                        <p><strong>Price:</strong> ₴ ${book.price}</p>
+                    `;
+                    list.appendChild(bookDiv);
+                });
+            } catch (error) {
+                list.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+
+</body>
+</html>
